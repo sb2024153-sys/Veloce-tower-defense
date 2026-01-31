@@ -407,7 +407,7 @@
 
         draw() {
             const alpha = Math.min(1, this.duration / 180);
-            ctx.fillStyle = \`rgba(124, 252, 0, \${alpha * 0.4})\`;
+            ctx.fillStyle = `rgba(124, 252, 0, ${alpha * 0.4})`;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             ctx.fill();
@@ -473,7 +473,6 @@
             }
         });
     }
-    initializeCodex();
 
     // --- TOWER DATA STRUCTURE ---
     const TOWER_SPECS = {
@@ -1450,7 +1449,7 @@
             // Draw Level
             ctx.fillStyle = 'yellow';
             ctx.font = 'bold 10px Inter';
-            ctx.fillText(\`Lv\${this.level}\`, this.x, this.y + 15);
+            ctx.fillText(`Lv${this.level}`, this.x, this.y + 15);
 
             // Draw Cooldown
             this.drawCooldown();
@@ -1460,7 +1459,7 @@
                 ctx.beginPath();
                 ctx.moveTo(this.x, this.y);
                 ctx.lineTo(this.laserTarget.x, this.laserTarget.y);
-                ctx.strokeStyle = \`rgba(255, 0, 0, \${0.3 + (this.laserCharge / 20)})\`;
+                ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + (this.laserCharge / 20)})`;
                 ctx.lineWidth = 1 + this.laserCharge / 5;
                 ctx.stroke();
             }
@@ -1690,7 +1689,7 @@
         const currentRadius = e.radius * (1 + progress * 0.5);
         const alpha = 1 - progress;
 
-        ctx.fillStyle = e.color || \`rgba(255, 165, 0, \${alpha * 0.5})\`;
+        ctx.fillStyle = e.color || `rgba(255, 165, 0, ${alpha * 0.5})`;
         ctx.beginPath();
         ctx.arc(e.x, e.y, currentRadius, 0, Math.PI * 2);
         ctx.fill();
@@ -1832,7 +1831,7 @@
         if (gameState.isWaveActive && gameState.enemies.length === 0 && waveQueue.length === 0) {
             gameState.isWaveActive = false;
             gameState.gems++; // Award 1 gem at the end of the wave
-            gameState.waveMessage = { text: \`Wave \${gameState.wave} cleared!\`, subtext: '+1 gem', alpha: 1, timer: 120 };
+            gameState.waveMessage = { text: `Wave ${gameState.wave} cleared!`, subtext: '+1 gem', alpha: 1, timer: 120 };
 
             // --- End of Wave Bank Income ---
             let totalIncome = 0;
@@ -1843,7 +1842,7 @@
             });
             gameState.gold += totalIncome;
 
-            document.getElementById('startWaveBtn').innerText = \`Start Wave \${gameState.wave + 1}\`;
+            document.getElementById('startWaveBtn').innerText = `Start Wave ${gameState.wave + 1}`;
             document.getElementById('startWaveBtn').disabled = false;
             document.getElementById('startWaveBtn').classList.remove('bg-gray-500', 'hover:bg-gray-500');
             document.getElementById('startWaveBtn').classList.add('bg-green-500', 'hover:bg-green-600');
@@ -1976,7 +1975,7 @@
 
         waveQueue = generateWave(gameState.wave);
 
-        document.getElementById('startWaveBtn').innerText = \`Wave in Progress... (\${gameState.wave})\`;
+        document.getElementById('startWaveBtn').innerText = `Wave in Progress... (${gameState.wave})`;
         document.getElementById('startWaveBtn').disabled = true;
         document.getElementById('startWaveBtn').classList.remove('bg-green-500', 'hover:bg-green-600');
         document.getElementById('startWaveBtn').classList.add('bg-gray-500', 'hover:bg-gray-500');
@@ -2022,6 +2021,7 @@
     }
 
     function loadGame() {
+        initializeCodex();
         const savedDataJSON = localStorage.getItem('towerDefenseSave');
         if (!savedDataJSON) {
             alert('No saved game found!');
@@ -2037,7 +2037,7 @@
             gameState.health = savedData.health;
             gameState.wave = savedData.wave;
             gameState.enemyHpMultiplier = savedData.enemyHpMultiplier;
-            gameState.codex = savedData.codex;
+            Object.assign(gameState.codex, savedData.codex);
             gameState.path = savedData.path;
 
             // Clear current towers and rebuild from save
@@ -2070,7 +2070,7 @@
             // Update UI to reflect loaded state
             updateStats();
             renderCodex();
-            document.getElementById('startWaveBtn').innerText = \`Start Wave \${gameState.wave + 1}\`;
+            document.getElementById('startWaveBtn').innerText = `Start Wave ${gameState.wave + 1}`;
             document.getElementById('startWaveBtn').disabled = false;
             document.getElementById('startWaveBtn').classList.remove('bg-gray-500', 'hover:bg-gray-500');
             document.getElementById('startWaveBtn').classList.add('bg-green-500', 'hover:bg-green-600');
@@ -2096,14 +2096,14 @@
         sortedSpecs.forEach(enemy => {
             const isLocked = !enemy.unlocked;
             const entry = document.createElement('div');
-            entry.className = \`codex-entry text-xs transition-all \${isLocked ? 'codex-locked' : 'hover:bg-blue-100'}\`;
+            entry.className = `codex-entry text-xs transition-all ${isLocked ? 'codex-locked' : 'hover:bg-blue-100'}`;
 
             let content;
             if (isLocked) {
-                content = \`<span class="w-4 text-center mr-2 text-xl">\u003F</span>
+                content = `<span class="w-4 text-center mr-2 text-xl">\u003F</span>
                            <div class="flex-grow">
                                <span class="font-semibold text-white">[Info Locked]</span>
-                           </div>\`;
+                           </div>`;
             } else {
                 const baseHP = ENEMY_SPECS[enemy.type].hp;
                 const baseSpeed = ENEMY_SPECS[enemy.type].speed;
@@ -2122,14 +2122,27 @@
                 if (enemy.isCommander) traits.push('Commander');
                 if (enemy.isGravityManipulator) traits.push('Gravity Manipulator');
                 if (enemy.isIllusionist) traits.push('Illusionist');
+                // New enemy traits
+                if (enemy.isRegenerator) traits.push('Regenerating');
+                if (enemy.hasArmor) traits.push('Armored');
+                if (enemy.accelerates) traits.push('Accelerating');
+                if (enemy.canDodge) traits.push('Dodging');
+                if (enemy.canPhase) traits.push('Phasing');
+                if (enemy.canSummon) traits.push('Summoner');
+                if (enemy.isThief) traits.push('Thief');
+                if (enemy.leavesTrail) traits.push('Plagued Trail');
+                if (enemy.canCreateClones) traits.push('Cloning');
+                if (enemy.isTowerBomber) traits.push('Saboteur');
+                if (enemy.isEMPBomber) traits.push('EMP Blast');
+                if (enemy.isVampire) traits.push('Vampiric');
 
-                content = \`<span class="w-4 text-center mr-2 font-bold text-lg text-black" style="color:\${enemy.color};">\${enemy.symbol}</span>
+                content = `<span class="w-4 text-center mr-2 font-bold text-lg text-black" style="color:${enemy.color};">${enemy.symbol}</span>
                            <div class="flex-grow">
-                                <p class="font-bold text-gray-800">\${enemy.name}</p>
-                                <p class="text-gray-600">HP: \${baseHP} | Speed: \${baseSpeed.toFixed(1)} | Reward: \${baseReward}G</p>
-                                <p class="text-red-700 font-medium">Traits: \${traits.join(', ') || 'None'}</p>
-                                <p class="text-blue-500 font-bold mt-1">Kills: \${enemy.killCount}</p>
-                           </div>\`;
+                                <p class="font-bold text-gray-800">${enemy.name}</p>
+                                <p class="text-gray-600">HP: ${baseHP} | Speed: ${baseSpeed.toFixed(1)} | Reward: ${baseReward}G</p>
+                                <p class="text-red-700 font-medium">Traits: ${traits.join(', ') || 'None'}</p>
+                                <p class="text-blue-500 font-bold mt-1">Kills: ${enemy.killCount}</p>
+                           </div>`;
             }
 
             entry.innerHTML = content;
@@ -2165,17 +2178,17 @@
         gameState.selectedTowerInstance = tower;
         panel.classList.remove('hidden');
 
-        name.innerText = \`\${tower.name} (\${tower.type})\`;
-        level.innerText = \`Level: \${tower.level} / \${tower.maxLevel}\`;
+        name.innerText = `${tower.name} (${tower.type})`;
+        level.innerText = `Level: ${tower.level} / ${tower.maxLevel}`;
 
-        let statText = \`Range: \${Math.round(tower.range)}\`;
+        let statText = `Range: ${Math.round(tower.range)}`;
 
         if (tower.type === 'bank') {
-            statText = \`Income per wave: \${tower.getBankIncome()}\`;
+            statText = `Income per wave: ${tower.getBankIncome()}`;
         } else if (TOWER_SPECS[tower.type].isSupport) {
-             statText += \` | Support Type: Buff\`;
+             statText += ` | Support Type: Buff`;
         } else {
-             statText += \` | Damage: \${Math.round(tower.getDamage())} | Attack Rate: \${(60 / tower.getEffectiveRate()).toFixed(1)}/sec\`;
+             statText += ` | Damage: ${Math.round(tower.getDamage())} | Attack Rate: ${(60 / tower.getEffectiveRate()).toFixed(1)}/sec`;
         }
         stats.innerText = statText;
 
@@ -2188,7 +2201,7 @@
             upgradeMessage.innerText = '';
             upgradeMessage.classList.add('hidden');
         } else {
-            upgradeBtn.innerText = \`Upgrade (Cost: \${nextCost} Gold)\`;
+            upgradeBtn.innerText = `Upgrade (Cost: ${nextCost} Gold)`;
             upgradeBtn.disabled = gameState.gold < nextCost;
             if (gameState.gold < nextCost) {
                  upgradeMessage.innerText = 'Insufficient Gold.';
@@ -2198,7 +2211,7 @@
             }
         }
 
-        sellBtn.innerText = \`Sell (Refund: \${sellPrice} Gold)\`;
+        sellBtn.innerText = `Sell (Refund: ${sellPrice} Gold)`;
 
         targetingSelect.innerHTML = '';
         TARGETING_MODES.forEach(mode => {
@@ -2269,6 +2282,7 @@
 
     // --- INITIALIZATION ---
     function startGame() {
+        initializeCodex();
         const difficulty = document.getElementById('difficultySelect').value;
         const map = document.getElementById('mapSelect').value;
 
@@ -2329,14 +2343,14 @@
         const towerSelection = document.getElementById('towerSelection');
         Object.keys(TOWER_SPECS).forEach(type => {
             const spec = TOWER_SPECS[type];
-            const costText = spec.costGem > 0 ? \`\${spec.costGem}\u2b50\` : \`\${spec.costGold}\u0024\`;
+            const costText = spec.costGem > 0 ? `${spec.costGem}\u2b50` : `${spec.costGold}\u0024`;
 
             const card = document.createElement('div');
             card.className = 'tower-card shadow-sm';
             card.dataset.type = type;
-            card.innerHTML = \`<span class="block text-2xl font-bold" style="color:\${spec.color};">\${spec.symbol}</span>
-                              <span class="text-xs font-semibold">\${spec.name.split(' ')[0]}</span>
-                              <span class="text-xs block font-medium">\${costText}</span>\`;
+            card.innerHTML = `<span class="block text-2xl font-bold" style="color:${spec.color};">${spec.symbol}</span>
+                              <span class="text-xs font-semibold">${spec.name.split(' ')[0]}</span>
+                              <span class="text-xs block font-medium">${costText}</span>`;
 
             card.addEventListener('click', () => {
                 if (gameState.selectedTowerType === type) {
@@ -2402,7 +2416,7 @@
         speeds.forEach(speed => {
             const button = document.createElement('button');
             button.className = 'speed-multiplyer';
-            button.innerText = \`x\${speed}\`;
+            button.innerText = `x${speed}`;
             if (speed === 1) button.classList.add('speed-multiplyer-selected');
             button.addEventListener('click', () => {
                 gameState.gameSpeed = speed;
