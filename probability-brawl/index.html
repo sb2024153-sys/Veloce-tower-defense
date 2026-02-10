@@ -174,6 +174,7 @@
 <body>
 
 <div class="game-container">
+        <div id="fps-display" style="position: fixed; top: 5px; left: 5px; font-size: 10px; color: #555;">FPS: 60</div>
     <h1>PROBABILITY BRAWL</h1>
     <div class="info-panel">
         <div id="score-display">Wave: 1 | Score: 0</div>
@@ -238,16 +239,22 @@
 
     function resizeCanvas() {
         const container = canvas.parentElement;
-        const size = Math.min(container.clientWidth - 40, 760);
+        if (!container) return;
+        const width = Math.max(container.clientWidth, 300);
+        const size = Math.min(width - 40, 760);
         canvas.width = size;
         canvas.height = size * (400 / 760);
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    const GAME_SPEED = 1000 / 60;
+    const TARGET_FPS = 60;
+    const FRAME_TIME = 1000 / TARGET_FPS;
 
     // --- GLOBAL VARIABLES ---
+    let lastFrameTime = performance.now();
+    let frameCounter = 0;
+    let lastFpsUpdate = 0;
     let enemyTimeScale = 1.0;
     let startTime = Date.now();
     let particles = [];
@@ -289,6 +296,11 @@
 
         entry.innerHTML = content;
         battleLog.appendChild(entry);
+
+        while (battleLog.childNodes.length > 30) {
+            battleLog.removeChild(battleLog.firstChild);
+        }
+
         battleLog.scrollTop = battleLog.scrollHeight;
     }
 
@@ -297,6 +309,7 @@
     }
 
     function spawnParticles(x, y, color, count, speed = 2) {
+        if (particles.length > 300) return; // Particle limit for performance
         for(let i=0; i<count; i++) {
             particles.push(new Particle(x, y, color, Math.random() * speed, Math.random() * 4));
         }
@@ -369,25 +382,32 @@
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
 
-            // Special Visuals
-            if (this.typeData.name === 'THE GUARDIAN') {
-                const angle = Math.atan2(player.y - this.y, player.x - this.x);
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size + 10, angle - 0.8, angle + 0.8);
-                ctx.stroke();
+            // Add outline for better visibility
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Special Visuals for Enemies
+            if (this.typeData) {
+                if (this.typeData.name === 'THE GUARDIAN') {
+                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size + 10, angle - 0.8, angle + 0.8);
+                    ctx.stroke();
+                }
+
+                // Name for Bosses
+                if (this.typeData.name.includes('THE') || this.typeData.name === 'OMEGA BOSS') {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.typeData.name, this.x, this.y - this.size - 25);
+                }
             }
 
             ctx.restore();
-
-            // Name for Bosses
-            if (this.typeData.name.includes('THE') || this.typeData.name === 'OMEGA BOSS') {
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 12px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText(this.typeData.name, this.x, this.y - this.size - 25);
-            }
 
             // HP Bar
             const barWidth = this.size * 2.5;
@@ -401,17 +421,16 @@
             ctx.fillRect(this.x - barWidth / 2, this.y - this.size - 10, barWidth * hpRatio, barHeight);
         }
 
-        takeDamage(damage) {
+        takeDamage(damage, silent = false) {
             if (this.isGhost) return;
 
             // Guardian Shield
             if (this.typeData.name === 'THE GUARDIAN') {
-                // Simplified frontal shield check
                 damage *= 0.7;
             }
 
             this.hp -= damage;
-            spawnParticles(this.x, this.y, '#fff', 3, 3);
+            if (!silent) spawnParticles(this.x, this.y, '#fff', 3, 3);
 
             if (this.hp <= 0) {
                 this.hp = 0;
@@ -468,7 +487,8 @@
             enemies.forEach(e => {
                 const dist = this.distToPoint(e.x, e.y);
                 if (dist < e.size + this.width / 2) {
-                    e.takeDamage(this.damage);
+                    e.takeDamage(this.damage, true);
+                    if (Math.random() < 0.1) spawnParticles(e.x, e.y, '#fff', 1, 2);
                 }
             });
         }
@@ -522,8 +542,8 @@
 
             enemies.forEach(e => {
                 if (checkCollision(this, e)) {
-                    e.takeDamage(this.damage);
-                    spawnParticles(this.x, this.y, this.color, 5);
+                    e.takeDamage(this.damage, true);
+                    if (Math.random() < 0.1) spawnParticles(this.x, this.y, this.color, 1);
                 }
             });
         }
@@ -870,7 +890,7 @@
         PHANTOM: { name: "THE PHANTOM", color: "#9b59b6", size: 40, hpMult: 4.0, speed: 2.0, fireRate: 1200, dmg: 15, projectileSpeed: 12 },
         DEVOURER: { name: "THE DEVOURER", color: "#c0392b", size: 50, hpMult: 7.0, speed: 1.2, fireRate: 1000, dmg: 25, projectileSpeed: 9 },
 
-        BOSS: { name: "OMEGA BOSS", color: "#000000", size: 55, hpMult: 10.0, speed: 1.2, fireRate: 400, dmg: 30, projectileSpeed: 10 }
+        BOSS: { name: "OMEGA BOSS", color: "#ff00ff", size: 55, hpMult: 10.0, speed: 1.2, fireRate: 400, dmg: 30, projectileSpeed: 10 }
     };
 
     class Enemy extends GameObject {
@@ -932,9 +952,22 @@
             this.isAlive = true;
             this.stunEndTime = 0;
 
-            const side = Math.random() < 0.5 ? 0.1 : 0.9;
-            this.x = canvas.width * side;
-            this.y = canvas.height * Math.random();
+            // Set spawn position
+            const side = Math.random();
+            const padding = this.size;
+            if (side < 0.25) { // Left
+                this.x = -padding;
+                this.y = Math.random() * canvas.height;
+            } else if (side < 0.5) { // Right
+                this.x = canvas.width + padding;
+                this.y = Math.random() * canvas.height;
+            } else if (side < 0.75) { // Top
+                this.x = Math.random() * canvas.width;
+                this.y = -padding;
+            } else { // Bottom
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height + padding;
+            }
 
             enemyInfoDisplay.textContent = `Enemy: ${this.typeData.name}`;
             enemyInfoDisplay.style.color = this.typeData.color;
@@ -1045,12 +1078,14 @@
 
                 const currentSpeed = this.moveSpeed * enemyTimeScale;
 
-                if (dist > desiredDist) {
-                    this.x += (edx/dist) * currentSpeed;
-                    this.y += (edy/dist) * currentSpeed;
-                } else if (dist < desiredDist - 50) {
-                    this.x -= (edx/dist) * currentSpeed;
-                    this.y -= (edy/dist) * currentSpeed;
+                if (dist > 0) {
+                    if (dist > desiredDist) {
+                        this.x += (edx/dist) * currentSpeed;
+                        this.y += (edy/dist) * currentSpeed;
+                    } else if (dist < desiredDist - 50) {
+                        this.x -= (edx/dist) * currentSpeed;
+                        this.y -= (edy/dist) * currentSpeed;
+                    }
                 }
             }
 
@@ -1111,18 +1146,14 @@
             if (rand < 0.4) enemyCount = 1;
             else if (rand < 0.8) enemyCount = 2 + Math.floor(Math.random() * Math.min(wave, 3));
             else enemyCount = 1; // Default back to 1
+
+            // Hordes: more enemies as waves progress
+            enemyCount += Math.floor(wave / 3);
         }
 
         for (let i = 0; i < enemyCount; i++) {
             const e = new Enemy(0, 0);
             e.reset(wave);
-            // Spawn on different sides
-            const side = Math.random();
-            if (side < 0.25) { e.x = 0; e.y = Math.random() * canvas.height; }
-            else if (side < 0.5) { e.x = canvas.width; e.y = Math.random() * canvas.height; }
-            else if (side < 0.75) { e.x = Math.random() * canvas.width; e.y = 0; }
-            else { e.x = Math.random() * canvas.width; e.y = canvas.height; }
-
             enemies.push(e);
         }
 
@@ -1140,6 +1171,7 @@
         }
     }
 
+    let isGameRunning = false;
     function initGame() {
         score = 0; wave = 1;
         projectiles = []; items = []; shockwaves = []; particles = []; sentries = [];
@@ -1148,6 +1180,7 @@
         screenShake = 0;
         enemyTimeScale = 1.0;
         startTime = Date.now();
+        lastFrameTime = performance.now();
 
         // Clear log except header
         battleLog.innerHTML = '<div class="log-entry"><span class="log-time">[00:00]</span> Battle Started!</div>';
@@ -1159,8 +1192,10 @@
         spawnWave();
 
         updateUI();
-        if (gameLoopInterval) clearInterval(gameLoopInterval);
-        gameLoopInterval = setInterval(gameLoop, GAME_SPEED);
+        if (!isGameRunning) {
+            isGameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
     }
 
     function updateUI() {
@@ -1201,7 +1236,6 @@
         }
 
         projectile.isAlive = false;
-        checkEnemyDeath();
     }
 
     function checkEnemyDeath() {
@@ -1241,7 +1275,7 @@
 
     function updateGame() {
         if (!player.isAlive) {
-            clearInterval(gameLoopInterval);
+            isGameRunning = false;
             displayMessage(`GAME OVER!`, '#e74c3c');
             logEvent("Player Defeated. GAME OVER.", "danger");
             resetButton.style.display = 'block';
@@ -1340,16 +1374,20 @@
         orbitals = orbitals.filter(o => o.isAlive);
 
         // --- BOLTS ---
-        bolts.forEach(b => b.life -= 0.1);
-        bolts = bolts.filter(b => b.life > 0);
+        for (let i = bolts.length - 1; i >= 0; i--) {
+            bolts[i].life -= 0.1;
+            if (bolts[i].life <= 0) bolts.splice(i, 1);
+        }
 
         // --- ENEMY ---
         enemies.forEach(e => e.update());
         checkEnemyDeath();
 
         // --- PROJECTILES ---
-        projectiles.forEach(p => p.update());
-        projectiles = projectiles.filter(p => p.isAlive);
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            projectiles[i].update();
+            if (!projectiles[i].isAlive) projectiles.splice(i, 1);
+        }
 
         projectiles.forEach(p => {
             if (!p.isAlive) return;
@@ -1382,7 +1420,7 @@
                         const angle = Math.atan2(e.y - sw.y, e.x - sw.x);
                         e.x += Math.cos(angle) * 10;
                         e.y += Math.sin(angle) * 10;
-                        e.takeDamage(0.5);
+                    e.takeDamage(0.5, true);
                     }
                 });
             }
@@ -1396,8 +1434,10 @@
         shockwaves = shockwaves.filter(s => s.isAlive);
 
         // --- PARTICLES ---
-        particles.forEach(p => p.update());
-        particles = particles.filter(p => p.life > 0);
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            if (particles[i].life <= 0) particles.splice(i, 1);
+        }
 
         updateUI();
     }
@@ -1445,9 +1485,28 @@
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    function gameLoop() {
-        updateGame();
+    function gameLoop(currentTime) {
+        if (!isGameRunning) return;
+
+        let deltaTime = currentTime - lastFrameTime;
+
+        if (deltaTime > 500) deltaTime = FRAME_TIME; // Prevent death spiral
+
+        while (deltaTime >= FRAME_TIME) {
+            updateGame();
+            deltaTime -= FRAME_TIME;
+            lastFrameTime += FRAME_TIME;
+
+            frameCounter++;
+            if (currentTime - lastFpsUpdate > 1000) {
+                document.getElementById('fps-display').textContent = `FPS: ${frameCounter}`;
+                frameCounter = 0;
+                lastFpsUpdate = currentTime;
+            }
+        }
+
         drawGame();
+        requestAnimationFrame(gameLoop);
     }
 
     // --- INPUTS ---
